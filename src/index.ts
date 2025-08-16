@@ -1,6 +1,9 @@
+import { Client, Collection, Events, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags} from 'discord.js';
 
-
-import { Client, Events, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, } from 'discord.js';
+import 'dotenv/config';
+import fs from 'fs';
+import path from 'path';
+const token = process.env.DISCORD_TOKEN;
 
 const client = new Client ({
     intents: [
@@ -8,8 +11,34 @@ const client = new Client ({
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent
     ]
-})
+}) as Client & { commands: Collection<string, any> };
 
+
+client.commands = new Collection();
+
+const foldersPath = path.join(__dirname, 'commands');
+const commandFolders = fs.readdirSync(foldersPath);
+
+
+for (const folder of commandFolders){
+    const commandsPath = path.join(foldersPath, folder);
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+    for (const file of commandFiles){
+        const filePath = path.join(commandsPath, file);
+        const command = require(filePath);
+
+        // set a new item in the collection with the key as the command name
+        // and the value as the exported module
+        if ('data' in command && 'execute' in command)
+        {
+            client.commands.set(command.data.name, command);
+
+        } 
+        else {
+            console.log (`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
+        }
+    }
+}
 // Event Listeners 
 
 // "Triggered once when the bot successfully logs in and is ready"
@@ -19,14 +48,23 @@ client.once(Events.ClientReady, async (readyClient) => {
         });
 
 // "Triggered whenever a message is created in a channel the bot can read. Logs the author and message content."
+
+
+
+client.on(Events.InteractionCreate, interaction => {
+	console.log(interaction);
+});
+
+
 client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot)
         return;
+    else console.log(`[Received message: "${message.content}" from ${message.author.tag}`);
+
     
     console.log(`${message.author.tag} said ${message.content}`);
 
     if (message.content === '!buttons') {
-        console.log(`Catchphrase Detected!}`);
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
                 new ButtonBuilder()
                     .setCustomId('Click_Yes')
